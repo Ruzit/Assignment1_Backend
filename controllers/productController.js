@@ -8,21 +8,24 @@ const getProducts = async (req, res) => {
 
     // Validate price inputs
     if (minPrice && isNaN(Number(minPrice))) {
-      return res
-        .status(400)
-        .json({ message: "minPrice must be a valid number" });
+      return res.status(400).json({
+        success: false,
+        message: "minPrice must be a valid number",
+      });
     }
 
     if (maxPrice && isNaN(Number(maxPrice))) {
-      return res
-        .status(400)
-        .json({ message: "maxPrice must be a valid number" });
+      return res.status(400).json({
+        success: false,
+        message: "maxPrice must be a valid number",
+      });
     }
 
     if (minPrice && maxPrice && Number(minPrice) > Number(maxPrice)) {
-      return res
-        .status(400)
-        .json({ message: "minPrice cannot be greater than maxPrice" });
+      return res.status(400).json({
+        success: false,
+        message: "minPrice cannot be greater than maxPrice",
+      });
     }
 
     // Search by name
@@ -58,6 +61,7 @@ const getProducts = async (req, res) => {
 
     if (sort && !allowedSortOptions.includes(sort)) {
       return res.status(400).json({
+        success: false,
         message:
           "Invalid sort value. Use price_asc, price_desc, name_asc, or name_desc",
       });
@@ -77,10 +81,16 @@ const getProducts = async (req, res) => {
 
     const products = await Product.find(filter).sort(sortOption);
 
-    res.status(200).json(products);
+    res.status(200).json({
+      success: true,
+      message: "Products fetched successfully",
+      data: products,
+    });
   } catch (error) {
     console.error("Error fetching products:", error);
-    res.status(500).json({ message: "Failed to fetch products" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch products" });
   }
 };
 
