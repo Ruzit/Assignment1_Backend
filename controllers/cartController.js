@@ -119,9 +119,44 @@ const deleteCartItem = async (req, res) => {
   }
 };
 
+// Get cart summary
+const getCartSummary = async (req, res) => {
+  try {
+    const cartItems = await Cart.find().populate("productId");
+
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+    const totalPrice = cartItems.reduce(
+      (sum, item) => sum + item.quantity * item.productId.price,
+      0,
+    );
+
+    res.status(200).json({
+      totalItems,
+      totalPrice,
+    });
+  } catch (error) {
+    console.error("Error fetching cart summary:", error);
+    res.status(500).json({ message: "Failed to fetch cart summary" });
+  }
+};
+
+// Clear all cart items
+const clearCart = async (req, res) => {
+  try {
+    await Cart.deleteMany();
+    res.status(200).json({ message: "Cart cleared successfully" });
+  } catch (error) {
+    console.error("Error clearing cart:", error);
+    res.status(500).json({ message: "Failed to clear cart" });
+  }
+};
+
 module.exports = {
   getCartItems,
   addToCart,
   updateCartItem,
   deleteCartItem,
+  getCartSummary,
+  clearCart,
 };
