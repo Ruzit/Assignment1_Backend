@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const product = require("./models/product");
+const product = require("./models/Product");
 const products = require("./data/products");
+const Cart = require("./models/Cart");
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ mongoose
 
 const importData = async () => {
   try {
+    await Cart.deleteMany();
     await product.deleteMany();
     await product.insertMany(products);
     console.log("Products seeded successfully");
