@@ -15,7 +15,7 @@ const protect = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Not authorized, no token provided",
+        message: "Not authorized, Please login to continue.",
       });
     }
 
@@ -26,7 +26,7 @@ const protect = async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Your account could not be found. Please log in again.",
       });
     }
 
@@ -34,7 +34,7 @@ const protect = async (req, res, next) => {
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: "Not authorized, token failed",
+      message: "Your session has expired or is invalid. Please log in again.",
     });
   }
 };
@@ -45,7 +45,7 @@ const adminOnly = (req, res, next) => {
   } else {
     res.status(403).json({
       success: false,
-      message: "Access denied. Admin only",
+      message: "Access denied. This page is only available to administrators.",
     });
   }
 };
