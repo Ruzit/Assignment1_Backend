@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 
-// Get all cart items with search and sort
+// Get logged-in user's cart items with optional search and sort
 const getCartItems = async (req, res) => {
   try {
     const { search, sort } = req.query;
@@ -24,7 +24,9 @@ const getCartItems = async (req, res) => {
       });
     }
 
-    let cartItems = await Cart.find().populate("productId");
+    let cartItems = await Cart.find({ userId: req.user._id }).populate(
+      "productId",
+    );
 
     if (search) {
       cartItems = cartItems.filter((item) =>
@@ -70,7 +72,7 @@ const getCartItems = async (req, res) => {
   }
 };
 
-// Add item to cart
+// Add item to logged-in user's cart
 const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
@@ -105,9 +107,11 @@ const addToCart = async (req, res) => {
       });
     }
 
-    const existingItem = await Cart.findOne({ productId });
+    const existingItem = await Cart.findOne({
+      userId: req.user._id,
+      productId,
+    });
 
-    // Check if the item already exists in the cart
     if (existingItem) {
       existingItem.quantity += quantity;
       await existingItem.save();
@@ -120,6 +124,7 @@ const addToCart = async (req, res) => {
     }
 
     const newCartItem = new Cart({
+      userId: req.user._id,
       productId,
       quantity,
     });
@@ -140,7 +145,7 @@ const addToCart = async (req, res) => {
   }
 };
 
-// Update cart item quantity
+// Update only logged-in user's cart item
 const updateCartItem = async (req, res) => {
   try {
     const { quantity } = req.body;
@@ -167,11 +172,14 @@ const updateCartItem = async (req, res) => {
       });
     }
 
-    const updatedItem = await Cart.findByIdAndUpdate(
-      id,
+    const updatedItem = await Cart.findOneAndUpdate(
+      {
+        _id: id,
+        userId: req.user._id,
+      },
       { quantity },
       { new: true },
-    );
+    ).populate("productId");
 
     if (!updatedItem) {
       return res.status(404).json({
@@ -194,7 +202,7 @@ const updateCartItem = async (req, res) => {
   }
 };
 
-// Delete cart item
+// Delete only logged-in user's cart item
 const deleteCartItem = async (req, res) => {
   try {
     const { id } = req.params;
@@ -206,7 +214,10 @@ const deleteCartItem = async (req, res) => {
       });
     }
 
-    const deletedItem = await Cart.findByIdAndDelete(id);
+    const deletedItem = await Cart.findOneAndDelete({
+      _id: id,
+      userId: req.user._id,
+    });
 
     if (!deletedItem) {
       return res.status(404).json({
@@ -228,12 +239,15 @@ const deleteCartItem = async (req, res) => {
   }
 };
 
-// Get cart summary
+// Get logged-in user's cart summary
 const getCartSummary = async (req, res) => {
   try {
-    const cartItems = await Cart.find().populate("productId");
+    const cartItems = await Cart.find({ userId: req.user._id }).populate(
+      "productId",
+    );
 
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
     const totalPrice = cartItems.reduce(
       (sum, item) => sum + item.quantity * item.productId.price,
       0,
@@ -256,10 +270,10 @@ const getCartSummary = async (req, res) => {
   }
 };
 
-// Clear all cart items
+// Clear only logged-in user's cart
 const clearCart = async (req, res) => {
   try {
-    await Cart.deleteMany();
+    await Cart.deleteMany({ userId: req.user._id });
 
     res.status(200).json({
       success: true,

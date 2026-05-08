@@ -10,11 +10,13 @@ const {
   clearCart,
 } = require("../controllers/cartController");
 
-router.get("/", getCartItems);
-router.post("/", addToCart);
-router.put("/:id", updateCartItem);
-router.delete("/:id", deleteCartItem);
-router.get("/summary", getCartSummary);
-router.delete("/", clearCart);
+const { protect } = require("../middleware/authMiddleware");
+
+router.get("/", protect, getCartItems);
+router.post("/", protect, addToCart);
+router.put("/:id", protect, updateCartItem);
+router.delete("/:id", protect, deleteCartItem);
+router.get("/summary", protect, getCartSummary);
+router.delete("/", protect, clearCart);
 
 module.exports = router;
