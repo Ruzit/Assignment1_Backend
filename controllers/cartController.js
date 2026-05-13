@@ -2,77 +2,25 @@ const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 
-// Get logged-in user's cart items with optional search and sort
 const getCartItems = async (req, res) => {
   try {
-    const { search, sort } = req.query;
-
-    const allowedSortOptions = [
-      "name_asc",
-      "name_desc",
-      "quantity_asc",
-      "quantity_desc",
-      "total_asc",
-      "total_desc",
-    ];
-
-    if (sort && !allowedSortOptions.includes(sort)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid sort value. Use name_asc, name_desc, quantity_asc, quantity_desc, total_asc, or total_desc",
-      });
-    }
-
-    let cartItems = await Cart.find({ userId: req.user._id }).populate(
-      "productId",
+    const cart = await Cart.findOne({ userId: req.user._id }).populate(
+      "products.productId",
     );
-
-    if (search) {
-      cartItems = cartItems.filter((item) =>
-        item.productId?.name.toLowerCase().includes(search.toLowerCase()),
-      );
-    }
-
-    if (sort === "name_asc") {
-      cartItems.sort((a, b) =>
-        a.productId.name.localeCompare(b.productId.name),
-      );
-    } else if (sort === "name_desc") {
-      cartItems.sort((a, b) =>
-        b.productId.name.localeCompare(a.productId.name),
-      );
-    } else if (sort === "quantity_asc") {
-      cartItems.sort((a, b) => a.quantity - b.quantity);
-    } else if (sort === "quantity_desc") {
-      cartItems.sort((a, b) => b.quantity - a.quantity);
-    } else if (sort === "total_asc") {
-      cartItems.sort(
-        (a, b) =>
-          a.productId.price * a.quantity - b.productId.price * b.quantity,
-      );
-    } else if (sort === "total_desc") {
-      cartItems.sort(
-        (a, b) =>
-          b.productId.price * b.quantity - a.productId.price * a.quantity,
-      );
-    }
 
     res.status(200).json({
       success: true,
-      message: "Cart items fetched successfully",
-      data: cartItems,
+      message: "Cart fetched successfully",
+      data: cart || { userId: req.user._id, products: [] },
     });
   } catch (error) {
-    console.error("Error fetching cart items:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch cart items",
+      message: "Failed to fetch cart",
     });
   }
 };
 
-// Add item to logged-in user's cart
 const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
@@ -107,37 +55,38 @@ const addToCart = async (req, res) => {
       });
     }
 
-    const existingItem = await Cart.findOne({
-      userId: req.user._id,
-      productId,
-    });
+    let cart = await Cart.findOne({ userId: req.user._id });
 
-    if (existingItem) {
-      existingItem.quantity += quantity;
-      await existingItem.save();
-
-      return res.status(200).json({
-        success: true,
-        message: "Cart item quantity updated successfully",
-        data: existingItem,
+    if (!cart) {
+      cart = await Cart.create({
+        userId: req.user._id,
+        products: [{ productId, quantity }],
       });
+    } else {
+      const existingProduct = cart.products.find(
+        (item) => item.productId.toString() === productId,
+      );
+
+      if (existingProduct) {
+        existingProduct.quantity += quantity;
+      } else {
+        cart.products.push({ productId, quantity });
+      }
+
+      await cart.save();
     }
 
-    const newCartItem = new Cart({
-      userId: req.user._id,
-      productId,
-      quantity,
-    });
-
-    await newCartItem.save();
+    const populatedCart = await Cart.findOne({ userId: req.user._id }).populate(
+      "products.productId",
+    );
 
     res.status(201).json({
       success: true,
       message: "Item added to cart successfully",
-      data: newCartItem,
+      data: populatedCart,
     });
   } catch (error) {
-    console.error("Error adding to cart:", error);
+    console.error("Add to cart error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to add item to cart",
@@ -145,23 +94,15 @@ const addToCart = async (req, res) => {
   }
 };
 
-// Update only logged-in user's cart item
 const updateCartItem = async (req, res) => {
   try {
     const { quantity } = req.body;
-    const { id } = req.params;
+    const { id } = req.params; // productId
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid cart item id",
-      });
-    }
-
-    if (quantity === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: "Quantity is required",
+        message: "Invalid product id",
       });
     }
 
@@ -172,29 +113,39 @@ const updateCartItem = async (req, res) => {
       });
     }
 
-    const updatedItem = await Cart.findOneAndUpdate(
-      {
-        _id: id,
-        userId: req.user._id,
-      },
-      { quantity },
-      { new: true },
-    ).populate("productId");
+    const cart = await Cart.findOne({ userId: req.user._id });
 
-    if (!updatedItem) {
+    if (!cart) {
       return res.status(404).json({
         success: false,
-        message: "Cart item not found",
+        message: "Cart not found",
       });
     }
+
+    const product = cart.products.find(
+      (item) => item.productId.toString() === id,
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found in cart",
+      });
+    }
+
+    product.quantity = quantity;
+    await cart.save();
+
+    const populatedCart = await Cart.findOne({ userId: req.user._id }).populate(
+      "products.productId",
+    );
 
     res.status(200).json({
       success: true,
       message: "Cart item updated successfully",
-      data: updatedItem,
+      data: populatedCart,
     });
   } catch (error) {
-    console.error("Error updating cart item:", error);
     res.status(500).json({
       success: false,
       message: "Failed to update cart item",
@@ -202,53 +153,60 @@ const updateCartItem = async (req, res) => {
   }
 };
 
-// Delete only logged-in user's cart item
 const deleteCartItem = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // productId
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid cart item id",
-      });
-    }
+    const cart = await Cart.findOne({ userId: req.user._id });
 
-    const deletedItem = await Cart.findOneAndDelete({
-      _id: id,
-      userId: req.user._id,
-    });
-
-    if (!deletedItem) {
+    if (!cart) {
       return res.status(404).json({
         success: false,
-        message: "Cart item not found",
+        message: "Cart not found",
       });
     }
+
+    cart.products = cart.products.filter(
+      (item) => item.productId.toString() !== id,
+    );
+
+    await cart.save();
 
     res.status(200).json({
       success: true,
       message: "Item removed from cart successfully",
     });
   } catch (error) {
-    console.error("Error deleting cart item:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to delete cart item",
+      message: "Failed to remove item from cart",
     });
   }
 };
 
-// Get logged-in user's cart summary
 const getCartSummary = async (req, res) => {
   try {
-    const cartItems = await Cart.find({ userId: req.user._id }).populate(
-      "productId",
+    const cart = await Cart.findOne({ userId: req.user._id }).populate(
+      "products.productId",
     );
 
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    if (!cart) {
+      return res.status(200).json({
+        success: true,
+        message: "Cart summary fetched successfully",
+        data: {
+          totalItems: 0,
+          totalPrice: 0,
+        },
+      });
+    }
 
-    const totalPrice = cartItems.reduce(
+    const totalItems = cart.products.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+
+    const totalPrice = cart.products.reduce(
       (sum, item) => sum + item.quantity * item.productId.price,
       0,
     );
@@ -262,7 +220,6 @@ const getCartSummary = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching cart summary:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch cart summary",
@@ -270,17 +227,19 @@ const getCartSummary = async (req, res) => {
   }
 };
 
-// Clear only logged-in user's cart
 const clearCart = async (req, res) => {
   try {
-    await Cart.deleteMany({ userId: req.user._id });
+    await Cart.findOneAndUpdate(
+      { userId: req.user._id },
+      { products: [] },
+      { new: true },
+    );
 
     res.status(200).json({
       success: true,
       message: "Cart cleared successfully",
     });
   } catch (error) {
-    console.error("Error clearing cart:", error);
     res.status(500).json({
       success: false,
       message: "Failed to clear cart",
