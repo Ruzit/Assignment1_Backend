@@ -6,6 +6,9 @@ const {
   getAllCarts,
   deleteUser,
   updateUserRole,
+  updateUserCartItem,
+  removeUserCartItem,
+  clearUserCart,
 } = require("../controllers/adminController");
 
 const { protect, adminOnly } = require("../middleware/authMiddleware");
@@ -15,5 +18,13 @@ router.get("/users", protect, adminOnly, getAllUsers);
 router.get("/carts", protect, adminOnly, getAllCarts);
 router.delete("/users/:id", protect, adminOnly, deleteUser);
 router.put("/users/:id/role", protect, adminOnly, updateUserRole);
+router.put("/users/:id/cart", protect, adminOnly, updateUserCartItem);
+router.delete(
+  "/users/:id/cart/:itemId",
+  protect,
+  adminOnly,
+  removeUserCartItem,
+);
+router.delete("/users/:id/cart", protect, adminOnly, clearUserCart);
 
 module.exports = router;

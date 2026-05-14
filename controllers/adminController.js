@@ -25,7 +25,7 @@ const getAllCarts = async (req, res) => {
   try {
     const carts = await Cart.find()
       .populate("userId", "name email role")
-      .populate("productId");
+      .populate("products.productId");
 
     res.status(200).json({
       success: true,
@@ -110,9 +110,130 @@ const updateUserRole = async (req, res) => {
   }
 };
 
+// Admin: update product quantity in a user's cart
+const updateUserCartItem = async (req, res) => {
+  try {
+    const { userId, productId } = req.params;
+    const { quantity } = req.body;
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity must be at least 1",
+      });
+    }
+
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found for this user",
+      });
+    }
+
+    const item = cart.products.find(
+      (p) => p.productId.toString() === productId,
+    );
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found in user's cart",
+      });
+    }
+
+    item.quantity = quantity;
+    await cart.save();
+
+    const updatedCart = await Cart.findOne({ userId })
+      .populate("userId", "name email role")
+      .populate("products.productId");
+
+    res.status(200).json({
+      success: true,
+      message: "User cart item updated successfully",
+      data: updatedCart,
+    });
+  } catch (error) {
+    console.error("Update user cart item error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user cart item",
+    });
+  }
+};
+
+// Admin: remove product from a user's cart
+const removeUserCartItem = async (req, res) => {
+  try {
+    const { userId, productId } = req.params;
+
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found for this user",
+      });
+    }
+
+    cart.products = cart.products.filter(
+      (p) => p.productId.toString() !== productId,
+    );
+
+    await cart.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product removed from user's cart successfully",
+    });
+  } catch (error) {
+    console.error("Remove user cart item error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove product from user cart",
+    });
+  }
+};
+
+// Admin: clear a specific user's cart
+const clearUserCart = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const cart = await Cart.findOneAndUpdate(
+      { userId },
+      { products: [] },
+      { new: true },
+    );
+
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found for this user",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User cart cleared successfully",
+    });
+  } catch (error) {
+    console.error("Clear user cart error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear user cart",
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getAllCarts,
   deleteUser,
   updateUserRole,
+  updateUserCartItem,
+  removeUserCartItem,
+  clearUserCart,
 };
