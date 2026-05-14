@@ -18,13 +18,20 @@ router.get("/users", protect, adminOnly, getAllUsers);
 router.get("/carts", protect, adminOnly, getAllCarts);
 router.delete("/users/:id", protect, adminOnly, deleteUser);
 router.put("/users/:id/role", protect, adminOnly, updateUserRole);
-router.put("/users/:id/cart", protect, adminOnly, updateUserCartItem);
+router.put(
+  "/users/:userId/cart/:productId",
+  protect,
+  adminOnly,
+  updateUserCartItem,
+);
+
 router.delete(
-  "/users/:id/cart/:itemId",
+  "/users/:userId/cart/:productId",
   protect,
   adminOnly,
   removeUserCartItem,
 );
-router.delete("/users/:id/cart", protect, adminOnly, clearUserCart);
+
+router.delete("/users/:userId/cart", protect, adminOnly, clearUserCart);
 
 module.exports = router;

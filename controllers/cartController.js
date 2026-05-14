@@ -229,11 +229,7 @@ const getCartSummary = async (req, res) => {
 
 const clearCart = async (req, res) => {
   try {
-    await Cart.findOneAndUpdate(
-      { userId: req.user._id },
-      { products: [] },
-      { new: true },
-    );
+    await Cart.findOneAndDelete({ userId: req.user._id });
 
     res.status(200).json({
       success: true,

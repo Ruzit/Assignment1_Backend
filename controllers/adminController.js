@@ -202,11 +202,7 @@ const clearUserCart = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const cart = await Cart.findOneAndUpdate(
-      { userId },
-      { products: [] },
-      { new: true },
-    );
+    const cart = await Cart.findOneAndDelete({ userId });
 
     if (!cart) {
       return res.status(404).json({
